@@ -8,7 +8,8 @@
 <h3>📅 개발 기간 : 2개월 &nbsp;&nbsp;</h3>
 <h3>👥 개발 인원 : 7명</h3>
 
-<h3> 담당 파트 : **Shader** | 디퍼드 렌더링 파이프라인, SFX </h3>
+<h3> 담당 파트 : Shader | 디퍼드 렌더링 파이프라인, SFX </h3>
+<h3> Origin : https://github.com/PJH1998/Wuthring-Wave-Final </h3>
 
 <br></br>
 
