@@ -86,4 +86,4 @@
 | --- | --- |
 | 상호작용 | Decal 기반 스캔 범위 표시 및 오브젝트 탐지 시스템 |
 | 이펙트 | 플레이어 궁극기 스크린 이펙트 |
-| 렌더링 & 그래픽스 | 렌더 타겟 기반 렌더링 파이프라인 <br> HDR / 외곽선 / Decal / Rim Light <br> Down Sampling / Up Sampling <br> PBR 기반 조명 및 재질 표현 <br> Cascade Shadow Map 기반 동적 객체 그림자 표현 <br> Atlas Shadow Map 기반 정적 객체 그림자 표현 <br> Temporal Reprojection을 활용한 볼류메트릭 포그 및 God Ray 표현 <br> **Post Processing** <br> SSAO / Bloom / Blur / LUT <br> 화면 왜곡 / 화면 분할 <br> Reflection Probe 기반 물 반사 표현   |
+| 렌더링 & 그래픽스 | 렌더 타겟 기반 렌더링 파이프라인 <br> HDR / 외곽선 / Decal / Rim Light <br> Down Sampling / Up Sampling <br> PBR 기반 조명 및 재질 표현 <br> Cascade Shadow Map 기반 동적 객체 그림자 표현 <br> Atlas Shadow Map 기반 정적 객체 그림자 표현 <br> Temporal Reprojection을 활용한 볼류메트릭 포그 및 God Ray 표현 <br><br> **Post Processing** <br> SSAO / Bloom / Blur / LUT <br> 화면 왜곡 / 화면 분할 <br> Reflection Probe 기반 물 반사 표현   |
