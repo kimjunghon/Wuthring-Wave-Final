@@ -77,31 +77,28 @@ HRESULT CShadowMap::Bind_ShadowMap_Resources(CShader* pShader)
 		CRASH("Failed Proj Matrix");
 
 	if (FAILED(pShader->Bind_Value("g_vSectorUV", m_SectorUV.data(), sizeof(_float4) * m_iNumSectorToLayer)))
-		CRASH("Failed SectorStartPos");
+		CRASH("Failed SectorUV");
 
-	//TEST
-	_float fMinX = m_MapDesc.vCenterPos.x;
-	_float fMinZ = m_MapDesc.vCenterPos.z;
 	_float2 vSectorWorldSize = _float2(m_MapDesc.vExtents.x * 2.f, m_MapDesc.vExtents.z * 2.f);
-	_float2 vMin = _float2(fMinX, fMinZ);
+	_float2 vMin = _float2(m_MapDesc.vCenterPos.x, m_MapDesc.vCenterPos.z);
 
 	if (FAILED(pShader->Bind_Value("iNumSector", &m_iNumSector, sizeof(_int))))
-		CRASH("Failed SectorStartPos");
+		CRASH("Failed iNumSector");
 
 	if (FAILED(pShader->Bind_Value("iNumSectorX", &m_MapDesc.iNumSectorX, sizeof(_int))))
-		CRASH("Failed SectorStartPos");
+		CRASH("Failed iNumSectorX");
 
 	if (FAILED(pShader->Bind_Value("iNumSectorToLayer", &m_iNumSectorToLayer, sizeof(_int))))
-		CRASH("Failed SectorStartPos");
+		CRASH("Failed iNumSectorToLayer");
 
 	if (FAILED(pShader->Bind_Value("vSectorWorldSize", &vSectorWorldSize, sizeof(_float2))))
-		CRASH("Failed SectorStartPos");
+		CRASH("Failed vSectorWorldSize");
 
 	if (FAILED(pShader->Bind_Value("vMin", &vMin, sizeof(_float2))))
-		CRASH("Failed SectorStartPos");
+		CRASH("Failed vMin");
 
 	if (FAILED(pShader->Bind_Value("vShadowMapSize", &m_vShadowMapSize, sizeof(_float2))))
-		CRASH("Failed SectorStartPos");
+		CRASH("Failed vShadowMapSize");
 	
 	return S_OK;
 }
@@ -144,13 +141,14 @@ HRESULT CShadowMap::DownSampleShadowMap()
 
 	m_pCS->Set_UAV("OutputTexture", m_pDS_UAV);
 
-	_uint iSizeX = m_iShadowMapSizeX;
-	_uint iSizeY = m_iShadowMapSizeY;
+	_uint iSizeX = m_iShadowMapSizeX >> 1;
+	_uint iSizeY = m_iShadowMapSizeY >> 1;
 
 	_uint iThreadGroupX = (iSizeX + 7) / 8;
 	_uint iThreadGroupY = (iSizeY + 7) / 8;
+	_uint iThreadGroupZ = (m_iNumLayer + 3) / 4;
 
-	m_pCS->Dispatch(iThreadGroupX, iThreadGroupY, 1);
+	m_pCS->Dispatch(iThreadGroupX, iThreadGroupY, iThreadGroupZ);
 	
 	return S_OK;
 }
@@ -162,8 +160,6 @@ void CShadowMap::Clear()
 	for (auto& pBounding : m_Boundings)
 		Safe_Delete(pBounding);
 	m_Boundings.clear();
-	
-	m_iNumSector = 0;
 
 	Safe_Release(m_pShadowMapDSV);
 	Safe_Release(m_pShadowMapSRV);
@@ -241,7 +237,10 @@ HRESULT CShadowMap::Ready_ShadowMap()
 
 	m_iNumSectorToLayer = m_iNumSectorX_ToLayer * m_iNumSectorZ_ToLayer;
 
-	m_iNumLayer = m_iNumSector / m_iNumSectorToLayer;
+	if (0 == m_iNumSectorToLayer || m_iNumSectorToLayer > MAX_SECTOR_UV || m_iNumSector > MAX_SECTOR)
+		CRASH("Failed Ready ShadowMap : Sector Count");
+
+	m_iNumLayer = (m_iNumSector + m_iNumSectorToLayer - 1) / m_iNumSectorToLayer;
 
 	m_iShadowMapSizeX = m_MapDesc.iSectorSizeX * m_iNumSectorX_ToLayer;	// Texture Width
 	m_iShadowMapSizeY = m_MapDesc.iSectorSizeZ * m_iNumSectorZ_ToLayer; // Texture Height
@@ -378,21 +377,19 @@ HRESULT CShadowMap::Ready_SectorUV()
 
 HRESULT CShadowMap::Ready_Matrices()
 {
-	_int iRadiusX = (m_MapDesc.iNumSectorX);
-	_int iRadiusZ = (m_MapDesc.iNumSectorZ);
+	_int iNumSectorX = m_MapDesc.iNumSectorX;
+	_int iNumSectorZ = m_MapDesc.iNumSectorZ;
 
-	for (_uint z = 0; z < iRadiusZ; ++z)
+	_float3 vMarginExtents = _float3(m_MapDesc.vExtents.x * 1.1f, m_MapDesc.vExtents.y, m_MapDesc.vExtents.z * 1.1f);
+
+	for (_int z = 0; z < iNumSectorZ; ++z)
 	{
-		for (_uint x = 0; x < iRadiusX; ++x)
+		for (_int x = 0; x < iNumSectorX; ++x)
 		{
-			_uint iWeightX = (x * 2) + 1;
-			_uint iWeightZ = (z * 2) + 1;
+			_int iWeightX = (x * 2) + 1;
+			_int iWeightZ = (z * 2) + 1;
 			_float3 vCenterPos = Compute_CenterPos(iWeightX, iWeightZ, m_MapDesc.vCenterPos, m_MapDesc.vExtents);
 
-			_float vMarginX = m_MapDesc.vExtents.x + (m_MapDesc.vExtents.x * 0.1f);
-			_float vMarginZ = m_MapDesc.vExtents.z + (m_MapDesc.vExtents.z * 0.1f);
-
-			_float3 vMarginExtents = _float3(vMarginX, m_MapDesc.vExtents.y, vMarginZ);
 			BoundingBox* Bounding = new BoundingBox(vCenterPos, vMarginExtents);
 
 			_float4x4 ViewMatrix = Make_ViewMatrix(vCenterPos, Bounding, m_MapDesc.vLightDir);
@@ -435,7 +432,9 @@ HRESULT CShadowMap::Ready_Buffer()
 	memcpy(Data.vSectorUV, m_SectorUV.data(), sizeof(_float4) * m_iNumSectorToLayer);
 
 	D3D11_MAPPED_SUBRESOURCE SubResource;
-	m_pContext->Map(m_pShadowMapBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &SubResource);
+	if (FAILED(m_pContext->Map(m_pShadowMapBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &SubResource)))
+		CRASH("Failed to Map ShadowMap_Buffer");
+
 	memcpy(SubResource.pData, reinterpret_cast<void*>(&Data), sizeof(SHADOWMAP_DATA));
 	m_pContext->Unmap(m_pShadowMapBuffer, 0);
 
@@ -452,28 +451,17 @@ _float3 CShadowMap::Compute_CenterPos(_int iWeightX, _int iWeightZ, _float3 vOri
 	return vCenterPos;
 }
 
-_float CShadowMap::Compute_MaxRadius(const BoundingBox* Bounding, _float3 vCenterPos)
+_float CShadowMap::Compute_MaxRadius(const BoundingBox* Bounding)
 {
-	_float fRadius = 0.f;
-	_float fDistance = 0.f;
-
-	_float3 vPoints[8];
-	Bounding->GetCorners(vPoints);
-
-	for (_uint i = 0; i < 8; i++)
-	{
-		fDistance = XMVectorGetX(XMVector3Length(XMVectorSubtract(XMLoadFloat3(&vCenterPos), XMLoadFloat3(&vPoints[i]))));
-		fRadius = max(fRadius, fDistance);
-	}
-
-	return fRadius;
+	// 박스 중심에서 가장 먼 꼭짓점까지의 거리 = 대각선 절반
+	return XMVectorGetX(XMVector3Length(XMLoadFloat3(&Bounding->Extents)));
 }
 
 _float4x4 CShadowMap::Make_ViewMatrix(_float3 vCenterPos, const BoundingBox* Bounding, _float3 vDir)
 {
 	_vector vAt = XMLoadFloat3(&vCenterPos);
 
-	_float fMaxRadius = Compute_MaxRadius(Bounding, vCenterPos);
+	_float fMaxRadius = Compute_MaxRadius(Bounding);
 
 	_vector vLookDir = XMVector3Normalize(XMLoadFloat3(&vDir));
 
@@ -492,40 +480,21 @@ _float4x4 CShadowMap::Make_ProjMatrix(const BoundingBox* Bounding, _float4x4 Vie
 
 	Bounding->Transform(ViewBounding, XMLoadFloat4x4(&ViewMatrix));
 		
-	_float fMinX = FLT_MAX, fMaxX = FLT_MAX * -1.f;
-	_float fMinY = FLT_MAX, fMaxY = FLT_MAX * -1.f;
-	_float fMinZ = FLT_MAX, fMaxZ = FLT_MAX * -1.f;
-
-	_float3 vViewPoint[8];
-	ViewBounding.GetCorners(vViewPoint);
-
-	for (_uint i = 0; i < 8; i++)
-	{
-		fMinX = min(fMinX, vViewPoint[i].x);
-		fMaxX = max(fMaxX, vViewPoint[i].x);
-
-		fMinY = min(fMinY, vViewPoint[i].y);
-		fMaxY = max(fMaxY, vViewPoint[i].y);
-
-		fMinZ = min(fMinZ, vViewPoint[i].z);
-		fMaxZ = max(fMaxZ, vViewPoint[i].z);
-	}
-
 	_float fTexelSizeX = (ViewBounding.Extents.x * 2.f) / static_cast<_float>(m_vSectorSize.x);		// 현재 Cascade 프러스텀의 NDC상 Texel 사이즈 X
 
 	_float fTexelSizeY = (ViewBounding.Extents.y * 2.f) / static_cast<_float>(m_vSectorSize.y);		// 현재 Cascade 프러스텀의 NDC상 Texel 사이즈 Y
 
 	_float3 vViewCenterPos = ViewBounding.Center;
 
-	vViewCenterPos.x = floor(vViewCenterPos.x / (fTexelSizeX * 0.5f)) * fTexelSizeX;
-	vViewCenterPos.y = floor(vViewCenterPos.y / (fTexelSizeY * 0.5f)) * fTexelSizeY;
+	vViewCenterPos.x = floor(vViewCenterPos.x / fTexelSizeX) * fTexelSizeX;
+	vViewCenterPos.y = floor(vViewCenterPos.y / fTexelSizeY) * fTexelSizeY;
 
 	_float4 vRect = _float4(vViewCenterPos.x - ViewBounding.Extents.x,		//fCascadeExtent,
 		vViewCenterPos.x + ViewBounding.Extents.x,		//fCascadeExtent,
 		vViewCenterPos.y - ViewBounding.Extents.y,		//fCascadeExtent,
 		vViewCenterPos.y + ViewBounding.Extents.y);	// fCascadeExtent);
 
-	_float fCascadeExtentZ = (fMaxZ - fMinZ) * 0.5f;
+	_float fCascadeExtentZ = ViewBounding.Extents.z;
 
 	_float fNear = vViewCenterPos.z - fCascadeExtentZ;
 	_float fFar = vViewCenterPos.z + fCascadeExtentZ;
@@ -534,9 +503,7 @@ _float4x4 CShadowMap::Make_ProjMatrix(const BoundingBox* Bounding, _float4x4 Vie
 	
 	XMStoreFloat4x4(&ProjMatrix, XMMatrixOrthographicOffCenterLH(vRect.x, vRect.y, vRect.z, vRect.w, fNear, fFar));
 
-	//XMStoreFloat4x4(&ProjMatrix, XMMatrixOrthographicOffCenterLH(fMinX, fMaxX, fMinY, fMaxY, fMinZ, fMaxZ));
-
-	return ProjMatrix;
+return ProjMatrix;
 }
 
 CShadowMap* CShadowMap::Create(ID3D11Device* pDevice, ID3D11DeviceContext* pContext)

@@ -82,11 +82,11 @@ HRESULT CEnvironmentMap::Bind_EnvMapDatas(CShader* pShader, const _char* pTextur
 
 	for (auto& pProbe : m_Probes)
 	{
-		if (iNumSRV >= m_iMaxBindEnvMap)
-			MSG_BOX("EnvMap is Over");
-
 		if(pProbe->IsInFrustrum())
 		{
+			if (iNumSRV >= m_iMaxBindEnvMap)
+				break;
+
 			pSRVs[iNumSRV] = pProbe->Get_EnvMap();
 
 			ENV_MAP	Data = {};
@@ -103,7 +103,7 @@ HRESULT CEnvironmentMap::Bind_EnvMapDatas(CShader* pShader, const _char* pTextur
 	{
 		HasEnvMap = true;
 
-		D3D11_BOX Box = { 0, 0, 0, max(sizeof(ENV_MAP) * iNumSRV, 1), 1, 1 };
+		D3D11_BOX Box = { 0, 0, 0, static_cast<_uint>(sizeof(ENV_MAP) * iNumSRV), 1, 1 };
 		m_pContext->UpdateSubresource(m_pProbeBuffer, 0, &Box, m_EnvMapDatas.data(), 0, 0);
 
 		if (FAILED(pShader->Bind_Textures(pTextureName, pSRVs, iNumSRV)))
@@ -111,10 +111,10 @@ HRESULT CEnvironmentMap::Bind_EnvMapDatas(CShader* pShader, const _char* pTextur
 
 		if (FAILED(pShader->Bind_Texture(pBufferName, m_pStructureSRV)))
 			CRASH("Failed to Bind BufferSRV");
-
-		if (FAILED(pShader->Bind_Value(pNumEnvMapName, &iNumSRV, sizeof(_uint))))
-			CRASH("Failed to Bind NumEnvMap");
 	}
+
+	if (FAILED(pShader->Bind_Value(pNumEnvMapName, &iNumSRV, sizeof(_uint))))
+		CRASH("Failed to Bind NumEnvMap");
 
 	if (FAILED(pShader->Bind_Value(pHasEnvMapName, &HasEnvMap, sizeof(_bool))))
 		CRASH("Failed to Bind HasEnvMap");
@@ -155,7 +155,7 @@ HRESULT CEnvironmentMap::Ready_Buffer()
 	StructureBufferDesc.CPUAccessFlags = 0;
 
 	if (FAILED(m_pDevice->CreateBuffer(&StructureBufferDesc, nullptr, &m_pProbeBuffer)))
-		CRASH("Failed to Created VF_LightBuffer");
+		CRASH("Failed to Created EnvMap StructuredBuffer");
 
 	//SBUFFER SRV
 	D3D11_SHADER_RESOURCE_VIEW_DESC SBuffer_SRVDesc = {};

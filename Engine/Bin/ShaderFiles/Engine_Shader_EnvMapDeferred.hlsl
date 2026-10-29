@@ -77,12 +77,6 @@ PS_OUT_LIGHT PS_LIGHT_DIRECTIONAL(PS_IN In)
     float3 vLightDir = g_vLightDirection.xyz * -1.f;
     
     vector vPBRDesc = g_PBRTexture.Sample(DefaultSampler, In.vTexcoord);
-   
-    float NdotL = dot(normalize(vLightDir), vNormal.xyz);
-    
-    float fRimPower = Compute_RimPower(vNormal, vLook, NdotL);
-
-    float3 vRimColor = g_vLightDiffuse.xyz;
     
     float3 vAmbient = 0.f;
     
@@ -94,17 +88,9 @@ PS_OUT_LIGHT PS_LIGHT_DIRECTIONAL(PS_IN In)
     
     float4 vAmbientColor = 0.f;
     
-    vector vViewPos = Compute_ViewPos(In.vTexcoord, g_DepthTexture);
-    float fViewZ = vViewPos.z;
-
     {
-        Compute_BRDF_PBR(vNormal.xyz, vLook.xyz, vLightDir, vDiffuse.xyz, vPBRDesc.x, vPBRDesc.y, vResultDiffuse, vResultSpecular); //g_fGlobalStaticMetallic, g_fGlobalStaticRoughness);
+        Compute_BRDF_PBR(vNormal.xyz, vLook.xyz, vLightDir, vDiffuse.xyz, vPBRDesc.x, vPBRDesc.y, vResultDiffuse, vResultSpecular);
         
-        vector vViewPos = Compute_ViewPos(In.vTexcoord, g_DepthTexture);
-        float fViewZ = vViewPos.z;
-
-        vector vWorldPos = mul(vViewPos, g_ViewMatrixInv);
-    
         vLightDiffuse = g_vLightDiffuse.xyz * vResultDiffuse;
         vLightSpecular = g_vLightDiffuse.xyz * vResultSpecular;
 
@@ -131,8 +117,6 @@ PS_OUT_LIGHT PS_LIGHT_POINT(PS_IN In)
         discard;
         
     float4 vNormal = Compute_Normal(g_NormalTexture, DefaultSampler, In.vTexcoord);
-    //vector vNormal = g_NormalTexture.Sample(DefaultSampler, In.vTexcoord);
-    //vNormal = normalize(vector(vNormal.xyz * 2.f - 1.f, 0.f));
     
     vector vWorldPos = Compute_WorldPos(In.vTexcoord, g_DepthTexture);
     
@@ -147,8 +131,7 @@ PS_OUT_LIGHT PS_LIGHT_POINT(PS_IN In)
    
     float NdotL = dot(normalize(vLightDir), vNormal.xyz);
     float fRimPower = Compute_RimPower(vNormal, vLook, NdotL);
-    float fToonShade = smoothstep(-0.3f, -0.1f, NdotL);
- 
+
     float3 vRimColor = g_vLightDiffuse.xyz;
  
     
@@ -164,8 +147,6 @@ PS_OUT_LIGHT PS_LIGHT_POINT(PS_IN In)
     vLightSpecular = (g_vLightDiffuse.xyz * ((vResultSpecular)) + (fRimPower * vRimColor)) * fAtt;
 
     float4 vAmbientColor = lerp(vDiffuse, g_vLightDiffuse, g_vLightAmbient);
-   
-//    Out.vLightAcc.a = 1.f;
     
     float4 vAmbient = float4((vAmbientColor * g_vLightAmbient).xyz * fAtt, 1.f);
     

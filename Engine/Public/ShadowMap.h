@@ -11,11 +11,15 @@ class CComputeShader;
 class CShadowMap final : public CBase
 {
 private:
+	static constexpr _uint MAX_SECTOR = 64;		// Engine_Shader_Shadow.hlsli MAX_SECTOR
+	static constexpr _uint MAX_SECTOR_UV = 16;		// Engine_Shader_Shadow.hlsli g_vSectorUV[16]
+
+private:
 	typedef struct ShadowMap_Data
 	{
-		_float4x4 SectorViewMatrix[64];
-		_float4x4 SectorProjMatrix[64];
-		_float4   vSectorUV[16];
+		_float4x4 SectorViewMatrix[MAX_SECTOR];
+		_float4x4 SectorProjMatrix[MAX_SECTOR];
+		_float4   vSectorUV[MAX_SECTOR_UV];
 
 		_int iNumSector;
 		_int iNumSectorX;
@@ -109,7 +113,7 @@ private:
 	HRESULT						Ready_Buffer();
 
 	_float3						Compute_CenterPos(_int iWeightX, _int iWeightZ, _float3 vOriginPos, _float3 vExtents);
-	_float						Compute_MaxRadius(const BoundingBox* Bounding, _float3 vCenterPos);
+	_float						Compute_MaxRadius(const BoundingBox* Bounding);
 	_float4x4					Make_ViewMatrix(_float3 vCenterPos, const BoundingBox* Bounding, _float3 vDir);
 	_float4x4					Make_ProjMatrix(const BoundingBox* Bounding, _float4x4 ViewMatrix);
 

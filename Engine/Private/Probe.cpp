@@ -112,7 +112,7 @@ HRESULT CProbe::Ready_Resources()
 	TextureDesc.SampleDesc.Count = 1;
 
 	TextureDesc.Usage = D3D11_USAGE_DEFAULT;
-	TextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;			// DSV, SRV
+	TextureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;			// RTV, SRV
 	TextureDesc.CPUAccessFlags = 0;
 	TextureDesc.MiscFlags = D3D11_RESOURCE_MISC_TEXTURECUBE;
 
@@ -170,10 +170,12 @@ HRESULT CProbe::Ready_Resources()
 	DSV_Desc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 	DSV_Desc.Texture2D.MipSlice = 0;
 
-	if (FAILED(m_pDevice->CreateDepthStencilView(pDepthTexture, &DSV_Desc, &m_pDSV)))
-		return E_FAIL;
+	HRESULT hr = m_pDevice->CreateDepthStencilView(pDepthTexture, &DSV_Desc, &m_pDSV);
 
 	Safe_Release(pDepthTexture);
+
+	if (FAILED(hr))
+		return E_FAIL;
 
 	return S_OK;
 }
@@ -212,13 +214,13 @@ HRESULT CProbe::Bind_ShaderResource(CShader* pShader, _uint iCubeFace)
 		CRASH("Failed Bind RT_EnvDiffuse");
 
 	if (FAILED(m_pGameInstance->Bind_RenderTarget(TEXT("RT_EnvNormal"), pShader, "g_NormalTexture")))
-		CRASH("Failed Bind RT_EnvDiffuse");
+		CRASH("Failed Bind RT_EnvNormal");
 	
 	if (FAILED(m_pGameInstance->Bind_RenderTarget(TEXT("RT_EnvDepth"), pShader, "g_DepthTexture")))
-		CRASH("Failed Bind RT_EnvDiffuse");
+		CRASH("Failed Bind RT_EnvDepth");
 	
 	if (FAILED(m_pGameInstance->Bind_RenderTarget(TEXT("RT_EnvPBR"), pShader, "g_PBRTexture")))
-		CRASH("Failed Bind RT_EnvDiffuse");
+		CRASH("Failed Bind RT_EnvPBR");
 
 	return S_OK;
 }
@@ -252,7 +254,7 @@ void CProbe::Render(CShader* pShader, CVIBuffer_Rect* pVIBuffer_Rect, _uint iInd
 		m_pGameInstance->End_MRT();
 
 		if (FAILED(Bind_ShaderResource(pShader, i)))
-			return;
+			break;
 
 		m_pGameInstance->Render_LightEnvMap(pShader, pVIBuffer_Rect, m_pBounding);
 	}

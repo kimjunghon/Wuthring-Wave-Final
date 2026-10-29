@@ -215,18 +215,7 @@ PS_OUT_LIGHT PS_LIGHT(PS_IN In)
                 Result = Compute_Directional(vDiffuse, vNormal, vWorldPos, vViewPos, vPBRDesc.z, vPBRDesc.y, vPBRDesc.x, IsSkin, i);
                 break;
             case 1: // POINT
-              Result = Compute_Point(vDiffuse, vNormal, vWorldPos, vViewPos, vPBRDesc.z, vPBRDesc.y, vPBRDesc.x, IsSkin, i);
-              //{
-              //      float3 vLightDir = g_LightDatas[i].vPosition.xyz - vWorldPos.xyz;
-    
-              //      float fDistance = length(vLightDir);
-    
-              //      vLightDir = normalize(vLightDir);
-    
-              //      float fAtt = saturate((g_LightDatas[i].fRange - fDistance) / g_LightDatas[i].fRange);
-                    
-              //      Result.vLightDiffuse = float4(fAtt, fAtt, fAtt, 1.f);
-              //  }
+                Result = Compute_Point(vDiffuse, vNormal, vWorldPos, vViewPos, vPBRDesc.z, vPBRDesc.y, vPBRDesc.x, IsSkin, i);
                 break;
         }
         
@@ -329,7 +318,7 @@ PS_OUT_BACKBUFFER PS_FOG(PS_IN In)
     
     float4 vViewPos = Compute_ViewPos(In.vTexcoord, g_DepthTexture);
     
-    float fViewZ = vViewPos.z == 0.f ? g_vFogRange.y : clamp(vViewPos.z, 0.1f, g_vFogRange.y);;
+    float fViewZ = vViewPos.z == 0.f ? g_vFogRange.y : clamp(vViewPos.z, 0.1f, g_vFogRange.y);
     
     vector vOriginColor = g_BackBufferTexture.Sample(DefaultSampler, In.vTexcoord);
     
@@ -356,15 +345,12 @@ PS_OUT_BACKBUFFER PS_FOG(PS_IN In)
     
     float3 vFogColor = VF.xyz;
     
-    //float fAlpha = VF.a;
     float fAlpha = lerp(0.4f, 1.f, saturate(VF.a));
     
     float3 vFinalColor = vOriginColor.xyz * fAlpha + vFogColor.xyz;
-//    float3 vFinalColor = lerp(vFogColor.xyz, vOriginColor.xyz, fAlpha);
     vFinalColor = ToneMap(vFinalColor.xyz * g_fExposure);
     
     Out.vColor.xyz = vFinalColor;
-//    Out.vColor.xyz = vOriginColor.xyz * fAlpha + vFogColor.xyz;
   
     Out.vColor.a = 1.f;
     

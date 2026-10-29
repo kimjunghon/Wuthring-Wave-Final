@@ -40,7 +40,7 @@ private:
 		_float fGroundFallOff;		
 		_float fNoiseScale;			
 		_float fNoiseTimeDelta;
-		_bool  IsTemporal;			// --
+		_uint  IsTemporal;			// -- HLSL bool (4byte)
 		_uint iRandCount;			
 		_float fRayPhaseFunctionG;	
 		_float fRayIntensity;

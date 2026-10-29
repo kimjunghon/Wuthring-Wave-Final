@@ -51,7 +51,7 @@ LIGHT_RESULT Compute_Directional(float4 vDiffuse, float4 vNormal, float4 vWorldP
     if (IsDynamic)
         fRimPower = Compute_RimPower(vNormal.xyz, vLook, NdotL);
 
-    float3 vRimColor = g_IsCustomRimColor ? g_vRimColor : g_LightDatas[iLightIndex].vDiffuse.xyz;
+    float3 vRimColor = g_IsCustomRimColor ? g_vRimColor.xyz : g_LightDatas[iLightIndex].vDiffuse.xyz;
     float3 vRim = (vRimColor * fRimPower);
     
     float3 vAmbient = 0.f;
@@ -76,10 +76,7 @@ LIGHT_RESULT Compute_Directional(float4 vDiffuse, float4 vNormal, float4 vWorldP
         {
             fShadowMap = clamp(Compute_ShadowMap(fViewZ, fShadowNdotL, vWorldPos, g_ShadowMap), 0.5f, 1.f);
         }
- 
- //       float fToonShade = 0.f; //smoothstep(-0.3f, -0.1f, NdotL);
-//        bool IsSkin = all(g_SkinMaskTexture.Sample(DefaultSampler, In.vTexcoord).xy > 0.f);
-        
+
         float fToonShade = clamp(smoothstep(cos(radians(120.f)), cos(radians(100.f)), NdotL), 0.5f, 1.f);
         
         float fFinalShadow = min(fToonShade, fShadowMap);
@@ -88,33 +85,27 @@ LIGHT_RESULT Compute_Directional(float4 vDiffuse, float4 vNormal, float4 vWorldP
         vLightDiffuse = g_LightDatas[iLightIndex].vDiffuse.xyz * ((vResultDiffuse * fFinalShadow));
         vLightSpecular = g_LightDatas[iLightIndex].vDiffuse.xyz * ((vResultSpecular * fFinalShadow)) + vRim;
         
-        if (false == IsSkin)      // �ݼ� �κи� PBR ó��
+        if (false == IsSkin)
         {
-            Out.vLightDiffuse = float4(vLightDiffuse, 1.f);
-            Out.vLightSpecular = float4(vLightSpecular, 1.f);
+            Out.vLightDiffuse = vLightDiffuse;
+            Out.vLightSpecular = vLightSpecular;
             
-            vAmbient = g_vDynamicMtrlAmbient * fFinalShadow;
+            vAmbient = g_vDynamicMtrlAmbient.xyz * fFinalShadow;
         }
         else
         {
             float3 vOrigin = vDiffuse.xyz * fShadowMap;
             
-            //Out.vLightDiffuse = float4(lerp(vOrigin, vLightDiffuse, g_LightDatas[iLightIndex].vAmbient.xyz), 1.f);
-            //Out.vLightSpecular = float4(vLightSpecular, 1.f);
-            // 
-            //vAmbient = g_LightDatas[iLightIndex].vAmbient;
+            Out.vLightDiffuse = lerp(vOrigin, vLightDiffuse, 0.6f);
+            Out.vLightSpecular = lerp(vRim, vLightSpecular, 0.6f);
             
-            Out.vLightDiffuse = float4(lerp(vOrigin, vLightDiffuse, 0.6f), 1.f);
-            Out.vLightSpecular = float4(lerp(vRim, vLightSpecular, 0.6f), 1.f);
-        
-            vAmbient = g_vDynamicMtrlAmbient * 0.8f * fFinalShadow;
+            vAmbient = g_vDynamicMtrlAmbient.xyz * 0.8f * fFinalShadow;
         }
         
         vAmbientColor = vDiffuse;
     }
     else
     {
-    //    Compute_Stylized_PBR(vNormal.xyz, vLook.xyz, vLightDir, vDiffuse.xyz, fMetallic, fRoughness, vResultDiffuse, vResultSpecular);
         Compute_BRDF_PBR(vNormal.xyz, vLook.xyz, vLightDir, vDiffuse.xyz, fMetallic, fRoughness, vResultDiffuse, vResultSpecular);
     
         if (g_HasShadowMap)
@@ -129,14 +120,14 @@ LIGHT_RESULT Compute_Directional(float4 vDiffuse, float4 vNormal, float4 vWorldP
         vLightDiffuse = g_LightDatas[iLightIndex].vDiffuse.xyz * ((vResultDiffuse * fFinalShadow));
         vLightSpecular = g_LightDatas[iLightIndex].vDiffuse.xyz * ((vResultSpecular * fFinalShadow)) + vRim;
         
-        Out.vLightDiffuse = float4(vLightDiffuse, 1.f);
-        Out.vLightSpecular = float4(vLightSpecular, 1.f);
+        Out.vLightDiffuse = vLightDiffuse;
+        Out.vLightSpecular = vLightSpecular;
         
         vAmbientColor = float4(lerp(vDiffuse.xyz, vResultDiffuse, 0.4f), 1.f);
         vAmbient = g_vStaticMtrlAmbient.xyz;
     }
     
-    Out.vLightAmbient = float4((vAmbientColor.xyz * vAmbient), 1.f);
+    Out.vLightAmbient = vAmbientColor.xyz * vAmbient;
     
     return Out;
 }
@@ -168,7 +159,7 @@ LIGHT_RESULT Compute_Point(float4 vDiffuse, float4 vNormal, float4 vWorldPos, fl
         
     float fToonShade = clamp(smoothstep(cos(radians(120.f)), cos(radians(100.f)), NdotL), 0.5f, 1.f);
  
-    float3 vRimColor = g_IsCustomRimColor ? g_vRimColor : g_LightDatas[iLightIndex].vDiffuse.xyz;
+    float3 vRimColor = g_IsCustomRimColor ? g_vRimColor.xyz : g_LightDatas[iLightIndex].vDiffuse.xyz;
  
     float3 vLightDiffuse = 0.f;
     float3 vLightSpecular = 0.f;
@@ -183,8 +174,8 @@ LIGHT_RESULT Compute_Point(float4 vDiffuse, float4 vNormal, float4 vWorldPos, fl
         vLightDiffuse = g_LightDatas[iLightIndex].vDiffuse.xyz * ((vResultDiffuse * fToonShade));
         vLightSpecular = g_LightDatas[iLightIndex].vDiffuse.xyz * ((vResultSpecular  * fToonShade)) + (fRimPower * vRimColor);
         
-        Out.vLightDiffuse = float4(vLightDiffuse * fAtt, 1.f);
-        Out.vLightSpecular= float4(vLightSpecular * fAtt, 1.f);
+        Out.vLightDiffuse = vLightDiffuse * fAtt;
+        Out.vLightSpecular = vLightSpecular * fAtt;
     }
     else
     {
@@ -193,14 +184,12 @@ LIGHT_RESULT Compute_Point(float4 vDiffuse, float4 vNormal, float4 vWorldPos, fl
         vLightDiffuse = g_LightDatas[iLightIndex].vDiffuse.xyz * ((vResultDiffuse));
         vLightSpecular = g_LightDatas[iLightIndex].vDiffuse.xyz * ((vResultSpecular)) + (fRimPower * vRimColor);
         
-        Out.vLightDiffuse = float4(vLightDiffuse * fAtt, 1.f);
-        Out.vLightSpecular = float4(vLightSpecular * fAtt, 1.f);
+        Out.vLightDiffuse = vLightDiffuse * fAtt;
+        Out.vLightSpecular = vLightSpecular * fAtt;
     }
 
-    //float4 vAmbientColor = vDiffuse * g_LightDatas[iLightIndex].vDiffuse; //Ambient ���� ������ �ӽ�
     float4 vAmbientColor = lerp(vDiffuse, g_LightDatas[iLightIndex].vDiffuse, g_LightDatas[iLightIndex].vAmbient.r);
-    float4 vAmbient = float4((vAmbientColor * g_LightDatas[iLightIndex].vAmbient).xyz * fAtt, 1.f);
-    //float4 vAmbient = float4((vAmbientColor.xyz * 0.5f) * fAtt, 1.f);
+    float3 vAmbient = (vAmbientColor * g_LightDatas[iLightIndex].vAmbient).xyz * fAtt;
     
     Out.vLightAmbient = vAmbient * fToonShade;
     

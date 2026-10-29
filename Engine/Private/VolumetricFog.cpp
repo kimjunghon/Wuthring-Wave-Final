@@ -110,7 +110,7 @@ void CVolumetricFog::Clear()
 {
 	m_IsUpdate = false;
 	m_IsFirst = true;
-	m_VF_Data.IsTemporal = false;
+	m_VF_Data.IsTemporal = 0;
 }
 
 void CVolumetricFog::Update_VF(_float fTimeDelta)
@@ -206,16 +206,14 @@ void CVolumetricFog::Update_Buffer(_float fTimeDelta)
 	m_VF_Data.fNoiseTimeDelta = fmodf((m_VF_Data.fNoiseTimeDelta + (fTimeDelta * 0.05f)), 1.f);
 	m_VF_Data.vCamPos = *m_pGameInstance->Get_CamPos();
 	m_VF_Data.iRandCount = (m_VF_Data.iRandCount + 1) % 16;
-	m_VF_Data.IsTemporal = m_IsFirst ? false : true;
-
-	if (m_IsFirst)
-		m_IsFirst = false;
+	m_VF_Data.IsTemporal = m_IsFirst ? 0 : 1;
+	m_IsFirst = false;
 
 	//LIGHT_DATA UPDATE
 	const vector<LIGHT_DATA>* pLightDats = m_pGameInstance->Get_LightDatas();
 	ASSERT_CRASH(pLightDats);
 
-	_uint iLightCount = static_cast<_uint>((*pLightDats).size());
+	_uint iLightCount = min(static_cast<_uint>((*pLightDats).size()), m_iMaxLight);
 
 	m_VF_Data.iLightCount = iLightCount;
 
@@ -227,9 +225,11 @@ void CVolumetricFog::Update_Buffer(_float fTimeDelta)
 
 	//VF_DATA UPDATE
 	D3D11_MAPPED_SUBRESOURCE VF_SubResource = {};
-	m_pContext->Map(m_pBuffers[ENUM_CLASS(BUFFER::DATA)], 0, D3D11_MAP_WRITE_DISCARD, 0, &VF_SubResource);
-	memcpy(VF_SubResource.pData, &m_VF_Data, sizeof(VF_DATA));
-	m_pContext->Unmap(m_pBuffers[ENUM_CLASS(BUFFER::DATA)], 0);
+	if (SUCCEEDED(m_pContext->Map(m_pBuffers[ENUM_CLASS(BUFFER::DATA)], 0, D3D11_MAP_WRITE_DISCARD, 0, &VF_SubResource)))
+	{
+		memcpy(VF_SubResource.pData, &m_VF_Data, sizeof(VF_DATA));
+		m_pContext->Unmap(m_pBuffers[ENUM_CLASS(BUFFER::DATA)], 0);
+	}
 
 }
 
@@ -337,7 +337,7 @@ HRESULT CVolumetricFog::Ready_NoiseTexture()
 	SRVDesc.Texture3D.MostDetailedMip = 0;
 	SRVDesc.Texture3D.MipLevels = 1;
 
-	if (FAILED(m_pDevice->CreateShaderResourceView(pTexture, &SRVDesc, &m_pSRVs[ENUM_CLASS(UAV::VF_NOISE)])))
+	if (FAILED(m_pDevice->CreateShaderResourceView(pTexture, &SRVDesc, &m_pSRVs[ENUM_CLASS(SRV::VF_NOISE)])))
 		CRASH("Failed to Created FV_SRV");
 
 	Safe_Release(pTexture);
@@ -362,7 +362,8 @@ HRESULT CVolumetricFog::Ready_Buffer()
 	ZeroMemory(&Data, sizeof(VF_DATA));
 
 	D3D11_MAPPED_SUBRESOURCE SubResource;
-	m_pContext->Map(m_pBuffers[ENUM_CLASS(BUFFER::DATA)], 0, D3D11_MAP_WRITE_DISCARD, 0, &SubResource);
+	if (FAILED(m_pContext->Map(m_pBuffers[ENUM_CLASS(BUFFER::DATA)], 0, D3D11_MAP_WRITE_DISCARD, 0, &SubResource)))
+		CRASH("Failed to Map VF_CBuffer");
 	memcpy(SubResource.pData, reinterpret_cast<void*>(&Data), sizeof(VF_DATA));
 	m_pContext->Unmap(m_pBuffers[ENUM_CLASS(BUFFER::DATA)], 0);
 
@@ -396,17 +397,17 @@ HRESULT CVolumetricFog::Ready_ComputeShader()
 	SHADER_MACRO Macro = { { "THREAD_X", "8" }, { "THREAD_Y", "8" }, { "LIGHT_THREAD_Z", "8" }, { NULL, NULL } };
 
 	m_pCS[ENUM_CLASS(CS::VF_LIGHT)]= CComputeShader::Create(m_pDevice, m_pContext, TEXT("../../Engine/Bin/ShaderFiles/Engine_ComputeShader_VF.hlsl"), Macro, "ComputeLight");
-	ASSERT_CRASH(m_pCS);
+	ASSERT_CRASH(m_pCS[ENUM_CLASS(CS::VF_LIGHT)]);
 
 	Macro = { { "THREAD_X", "8" }, { "THREAD_Y", "8" }, { "BEER_THREAD_Z", "1" }, { NULL, NULL } };
 
 	m_pCS[ENUM_CLASS(CS::VF_BEER)] = CComputeShader::Create(m_pDevice, m_pContext, TEXT("../../Engine/Bin/ShaderFiles/Engine_ComputeShader_VF.hlsl"), Macro, "VolumetricFog");
-	ASSERT_CRASH(m_pCS);
+	ASSERT_CRASH(m_pCS[ENUM_CLASS(CS::VF_BEER)]);
 
 	Macro = { { "THREAD_X", "8" }, { "THREAD_Y", "8" }, { "THREAD_Z", "8" }, { NULL, NULL } };
 
 	m_pCS[ENUM_CLASS(CS::VF_NOISE)] = CComputeShader::Create(m_pDevice, m_pContext, TEXT("../../Engine/Bin/ShaderFiles/Engine_ComputeShader_Noise.hlsl"), Macro, "SimpleXNoise");
-	ASSERT_CRASH(m_pCS);
+	ASSERT_CRASH(m_pCS[ENUM_CLASS(CS::VF_NOISE)]);
 
 	return S_OK;
 }

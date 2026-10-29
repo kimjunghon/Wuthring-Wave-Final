@@ -216,7 +216,7 @@ float ShadowPCF(float3 UVDepth, int iIndex, int iNumWeight, Texture2DArray<float
         }
     }
     
-    fShadow /= pow(iRadius, 2);
+    fShadow /= (iRadius * iRadius);
     
     return fShadow;
 }
@@ -255,10 +255,12 @@ NeighborData Check_Neighbor(float2 vTexcoord, int2 vSector, float fNeighborDista
    
     int2 TempSectors[4];
     
+    int iColumn = vSector.x % iNumSectorX;
+    
     for (int i = 0; i < 4; ++i)
     {
         int2 vOffset = 0;
-        vOffset.x = i >= 2 ? 0 : i == 1 ? 1 : 0;
+        vOffset.x = i == 0 ? -1 : i == 1 ? 1 : 0;
         vOffset.y = i < 2 ? 0 : i == 2 ? -iNumSectorX : iNumSectorX;
         
         int iSectorOffset = vOffset.x + vOffset.y;
@@ -266,7 +268,11 @@ NeighborData Check_Neighbor(float2 vTexcoord, int2 vSector, float fNeighborDista
         
         if (iNeighborSector >= iNumSector || iNeighborSector < 0)
             continue;
-            
+        
+        // Skip LEFT / RIGHT neighbors that wrap to another row
+        if ((i == 0 && iColumn == 0) || (i == 1 && iColumn == iNumSectorX - 1))
+            continue;
+
         int iLayer = floor(iNeighborSector / iNumSectorToLayer);
         
         if (Dir[i])
@@ -343,12 +349,9 @@ float Compute_ShadowMap(float4 vWorldPos, Texture2DArray<float> ShadowMapTexture
     
     NeighborData Neighbor = Check_Neighbor(vTexcoord, vSector, 0.005f);  // 근처 Sector와 거리가 가깝다면 NeighborData 채우기 ( 상 하 좌 우 )
     
-    if (any(Neighbor.iNumNeighbor))
+    for (int i = 0; i < Neighbor.iNumNeighbor; ++i)
     {
-        for (int i = 0; i < Neighbor.iNumNeighbor; ++i)
-        {
-            fShadow = min(Compute_NeighborShadow(Neighbor.vSectos[i], vWorldPos, ShadowMapTexture), fShadow);
-        }
+        fShadow = min(Compute_NeighborShadow(Neighbor.vSectos[i], vWorldPos, ShadowMapTexture), fShadow);
     }
     
     int iUVIndex = iIndex % iNumSectorToLayer;
@@ -365,8 +368,7 @@ float Compute_ShadowMap(float4 vWorldPos, Texture2DArray<float> ShadowMapTexture
     float fDepth = vProjPos.z;
    
     fShadow = min(ShadowPCF(float3(vTexcoord, fDepth), vSector.y, 2, ShadowMapTexture, vTexelSize, vStartTex, vEndTex), fShadow);
-    //ShadowMapTexture.SampleCmpLevelZero(ShadowSampler, float3(vTexcoord, vSector.y), fDepth);
-    
+
     return fShadow;
 }
 /*------------------------------------ SHADOW_MAP ------------------------------------*/
@@ -474,9 +476,8 @@ void ComputeLight(uint3 GroupID : SV_GroupID, uint3 DTID : SV_DispatchThreadID, 
     
     float fDistance = length(vCamPos.xyz - vWorldPosJitter.xyz);
     
-//    float fDistanceWeight = saturate(1.f - exp(fDistance * fDistanceFallOff));
     float fDistanceWeight = saturate(exp(-fDistanceFallOff * (fFogMaxDistance - fDistance)));
-    float fHeightWeight = vWorldPosJitter.y < fFogMaxHeight ?  1.f : saturate(exp(-fHegihtFallOff * (vWorldPosJitter.y - fFogMaxHeight)));;
+    float fHeightWeight = vWorldPosJitter.y < fFogMaxHeight ?  1.f : saturate(exp(-fHegihtFallOff * (vWorldPosJitter.y - fFogMaxHeight)));
     
     float fLightWeight = saturate(fDistanceWeight * fHeightWeight);// * fLightAtt);
     float fRayWeight = saturate(1.f - fLightWeight) * fRayAtt; // LightWieght 가 충분하다면 굳이 추가 X, LightWieght ( Fog가 보이지 않는곳 -> Ray는 살리기 )
@@ -536,7 +537,6 @@ void ComputeLight(uint3 GroupID : SV_GroupID, uint3 DTID : SV_DispatchThreadID, 
     }
    
     
-    //vFinalScatterning *= fNoise;
 
     OutputTexture[DTID.xyz] = vFinalScatterning;
 }

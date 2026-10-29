@@ -47,7 +47,7 @@ private:
 	BoundingBox*				m_pBounding = { nullptr };
 
 	vector<CGameObject*>		m_SkyBoxs;
-	vector<CStaticObject*>		m_StaticObjects;				// PBR 적용 때문에 좀 미뤄질듯,,
+	vector<CStaticObject*>		m_StaticObjects;
 
 	ID3D11Texture2D*			m_pTexture = { nullptr };
 	ID3D11RenderTargetView*		m_pRTVs[6] = {nullptr};

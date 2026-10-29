@@ -44,102 +44,16 @@ float4 Compute_Reflect(float4 vWorldPos, float4 vViewPos, float4 vViewNormal, fl
     
     float4 vReflectColor = 0.f;
 
-    bool IsHit = false;
-    
-    float fOffsetSize = g_fStartOffset;
-    
-    float2 vTexcoord = 0.f;
-    
-    float2 vHitRange = float2(0.f, 0.f);
-    float fHitDepth = 0.f;
-    
-    //float Jitter = lerp(0.2f, 1.f, Hash13(vViewPos.xyz));
-    
-    //fOffsetSize *= Jitter;
-    
-    //for (int i = 0; i < g_iStep && fOffsetSize < g_fMaxDistance; ++i)
-    //{   
-    //    float4 vLay = vViewPos + float4((vReflect.xyz * fOffsetSize), 0.f);
-       
-    //    vHitRange.x = vHitRange.y;
-    //    vHitRange.y = fOffsetSize;
-       
-    //    float4 vProjPos = mul(vLay, g_CamProjMatrix);
-        
-    //    vProjPos /= vProjPos.w;
-
-    //    if (false == IsInNDC(vProjPos))
-    //        break;
-        
-    //    vTexcoord = Compute_Texcoord(vProjPos.xy);
-        
-    //    float fDepth = DepthTexture.Sample(DefaultSampler, vTexcoord).y;
-        
-    //    if(fDepth <= 0.f)
-    //        break; 
-            
-    //    if (fDepth <= vLay.z)//            +g_fMaxTickness)
-    //    {
-    //        IsHit = true;
-    //        fHitDepth = fDepth;
-    //        break;
-    //    }
-        
-    //    float fOffsetRatio = saturate((float) i / (float) g_iStep);
-        
-    //    fOffsetSize += lerp(g_fMinStepSize, g_fMaxStepSize, fOffsetRatio);
-    //}
-    
-    //float fDistWeight = 1.f;
-    //float fStepDepth = 0.f;
-    //float4 vEnvColor = 0.f;
-    
-    //if (IsHit && fHitDepth > 0.f)
-    //{ 
-    //    // binary Step
-    //    for (uint i = 0; i < g_iBinaryStep; ++i)
-    //    {
-    //        float fBinaryOffset = (vHitRange.x + vHitRange.y) * 0.5f;
-            
-    //        float4 vBinaryLay = vViewPos + float4((vReflect.xyz * fBinaryOffset), 0.f);
-            
-    //        float4 vProjPos = mul(vBinaryLay, g_CamProjMatrix);
-        
-    //        vProjPos /= vProjPos.w;
-
-    //        vTexcoord = Compute_Texcoord(vProjPos.xy);
-        
-    //        float fDepth = DepthTexture.Sample(DefaultSampler, vTexcoord).y;
-            
-
-    //        if (fDepth <= vBinaryLay.z)
-    //            vHitRange.y = fBinaryOffset;
-    //        else
-    //            vHitRange.x = fBinaryOffset;
-                
-    //        fStepDepth = fDepth;
-    //    }
-        
-    //    vReflectColor = SceneTexture.Sample(DefaultSampler, vTexcoord);
-        
-    //    fDistWeight = saturate(fStepDepth / g_fMaxDistance);
-    //}
-    ////else
-    ////{
-    ////    vReflectColor = vOriginColor;
-    ////}
-    ////else
     {
         float fMinDistance = 10000.f;
-    
+        
         float4 vEnvColor = 0.f;
-    
-        uint iIndex = 0;
-        uint iSampleCount = clamp(g_iNumEnvMaps, 0, 8);
-      
-        bool IsInEnvMap = false;
-      
+        
+        uint iSampleCount = min(g_iNumEnvMaps, 8);
+        
         float3 vHitPlane = 0.f;
+        
+        float3 vWorldReflect = normalize(mul(vReflect, g_ViewMatrixInv).xyz);
       
         ENV_MAP Envmap = (ENV_MAP) 0;
       
@@ -152,9 +66,7 @@ float4 Compute_Reflect(float4 vWorldPos, float4 vViewPos, float4 vViewNormal, fl
             if (Envmap.fRange >= fLength && fMinDistance > fLength)
             {
                 fMinDistance = fLength;
-              
-                float3 vWorldReflect = normalize(mul(vReflect, g_ViewMatrixInv).xyz);
-              
+
                 float3 vLocalPos = vWorldPos.xyz - Envmap.vPosition.xyz;
               
                 float3 vExtents = Envmap.fRange;
@@ -172,13 +84,9 @@ float4 Compute_Reflect(float4 vWorldPos, float4 vViewPos, float4 vViewNormal, fl
         }
     }
     
-
-    //float fWeight = IsHit ? fDistWeight : 1.f;
-    
     vColor = float4(vReflectColor.xyz, 1.f);
 
-//    vColor = lerp(vReflectColor, vEnvColor, fWeight);
-    
+
     return vColor;
 }
 
